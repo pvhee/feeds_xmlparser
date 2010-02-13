@@ -1,0 +1,18 @@
+<?php 
+
+/**
+ * Implementation of hook_feeds_plugins().
+ */
+function feeds_xmlparser_feeds_plugins() {    
+  $info['FeedsXMLParser'] = array(
+    'name' => 'XML parser',
+    'description' => 'Parse data in XML format.',
+    'handler' => array(
+      'parent' => 'FeedsParser',
+      'class' => 'FeedsXMLParser',
+      'file' => 'FeedsXMLParser.inc',
+      'path' => drupal_get_path('module', 'feeds_xmlparser'),
+    ),
+  );
+  return $info;
+}

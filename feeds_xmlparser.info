@@ -1,0 +1,6 @@
+name = Feeds XML Parser
+description = Adds a simple XML parser for Feeds
+package = Feeds
+dependencies[] = feeds
+dependencies[] = xml_parser
+core = 6.x
