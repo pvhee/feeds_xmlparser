@@ -1,0 +1,133 @@
+<?php
+// $Id$
+
+/**
+ * @file
+ * Feeds XML Parser tests.
+ */
+
+// Require FeedsWebTestCase class definition.
+require_once(drupal_get_path('module', 'feeds') .'/tests/feeds.test.inc');
+
+/**
+ * Test aggregating an XML feed as node items.
+ */
+class FeedsXMLParserXMLtoNodesTest extends FeedsWebTestCase {
+
+  /**
+   * Describe this test.
+   */
+  public function getInfo() {
+    return array(
+      'name' => t('XML import to nodes'),
+      'description' => t('Tests import of an XML file using the FeedsXMLParser and a node processor.'),
+      'group' => t('Feeds XML Parser'),
+    );
+  }
+
+  /**
+   * Set up test.
+   */
+  public function setUp() {
+    parent::setUp('feeds', 'feeds_ui', 'ctools', 'feeds_xmlparser', 'xml_parser');
+    $this->drupalLogin(
+      $this->drupalCreateUser(
+        array(
+          'administer feeds', 'administer nodes',
+        )
+      )
+    );
+  }
+
+  /**
+   * Test node creation, refreshing/deleting feeds and feed items.
+   */
+  public function test() {
+
+    // Create a feed.
+    $this->createFeedConfiguration('XML import', 'xml_import');
+    
+    // Set and configure plugins.
+    $this->setPlugin('xml_import', 'FeedsFileFetcher');
+    $this->setPlugin('xml_import', 'FeedsXMLParser');
+    $this->setPlugin('xml_import', 'FeedsNodeProcessor');
+    
+    // Add mappings
+    $this->addMappings('xml_import',
+      array(
+        array(
+          'source' => 'title',
+          'target' => 'title',
+          'unique' => FALSE,
+        ),
+        array(
+          'source' => 'description',
+          'target' => 'body',
+          'unique' => FALSE,
+        ),
+        array(
+          'source' => 'publish_date',
+          'target' => 'created',
+          'unique' => FALSE,
+        ),
+        array(
+          'source' => 'ID',
+          'target' => 'guid',
+          'unique' => TRUE,
+        ),
+      )
+    );
+
+    // Change some of the basic configuration.
+    $edit = array(
+      'content_type' => '',
+      'import_period' => FEEDS_SCHEDULE_NEVER,
+    );
+    $this->drupalPost('admin/build/feeds/edit/xml_import/settings', $edit, 'Save');
+
+    // Import XML file.
+    $file = $this->absolute() .'/'. drupal_get_path('module', 'feeds_xmlparser') .'/example.xml';
+    $this->importFile('xml_import', $file);
+
+    // Assert result.
+    $this->assertText('Created 2 Story nodes.');
+    
+    // Assert accuracy of aggregated information.
+    $this->drupalGet('node');
+    $this->assertText('XML Developer Guide');
+//    $this->assertText('10/06/2009');
+    $this->assertText('An in-depth look at creating applications with XML.');
+    $this->assertText('Visual Studio 7: A Comprehensive Guide');
+//    $this->assertText('09/28/2009');
+    $this->assertText('Microsoft Visual Studio 7 is explored in depth, looking at how Visual Basic, Visual C++, C#, and ASP+ are integrated into a comprehensive development environment.');
+
+    // Assert DB status.
+    $count = db_result(db_query('SELECT COUNT(*) FROM {feeds_node_item}'));
+    $this->assertEqual($count, 2, 'Accurate number of items in database.');
+
+    // Import again.
+    $this->importFile('xml_import', $file);
+    $this->assertText('There is no new content.');
+
+    // Assert DB status, there still shouldn't be more than 2 items.
+    $count = db_result(db_query('SELECT COUNT(*) FROM {feeds_node_item}'));
+    $this->assertEqual($count, 2, 'Accurate number of items in database.');
+
+    // Now delete all items.
+    $this->drupalPost('import/xml_import/delete-items', array(), 'Delete');
+    $this->assertText('Deleted 2 nodes.');
+
+    // Assert DB status, now there should be no items.
+    $count = db_result(db_query('SELECT COUNT(*) FROM {feeds_node_item}'));
+    $this->assertEqual($count, 0, 'Accurate number of items in database.');
+
+    // Import again, we should find new content.
+    $this->importFile('xml_import', $file);
+    $this->assertText('Created 2 Story nodes.');
+  
+    // Assert DB status, there should be 2 again.
+    $count = db_result(db_query('SELECT COUNT(*) FROM {feeds_node_item}'));
+    $this->assertEqual($count, 2, 'Accurate number of items in database.');
+  }
+}
+
